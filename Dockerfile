@@ -1,24 +1,24 @@
 #---------------------------------------------------------------------
 # STAGE 1: Build credential helpers inside a temporary container
 #---------------------------------------------------------------------
-FROM --platform=linux/amd64 golang:1.23-alpine AS cred-helpers-build
+FROM golang:1.23-alpine AS cred-helpers-build
 
 RUN apk add --no-cache git
 
-# ECR helper (public, OK)
+# ECR helper (public, always builds)
 RUN go install github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login@bef5bd9384b752e5c645659165746d5af23a098a
 
-# ACR helper (may fail in forks → don't break build)
+# ACR helper (may fail in forks → skip)
 RUN go install github.com/snyk/docker-credential-acr-env@62fbee8398a22171cb0f628400a29b2ebaed7a3a || true
 
 #---------------------------------------------------------------------
 # STAGE 2: Build kubernetes-monitor application
 #---------------------------------------------------------------------
-FROM --platform=linux/amd64 node:22-alpine3.23
+FROM node:22-alpine3.23
 
 LABEL name="Snyk Controller" \
-    maintainer="support@snyk.io" \
-    vendor="Snyk Ltd"
+      maintainer="support@snyk.io" \
+      vendor="Snyk Ltd"
 
 COPY LICENSE /licenses/LICENSE
 
@@ -36,9 +36,8 @@ RUN adduser -S -G snyk -h /srv/app -u 10001 snyk
 RUN curl -sL https://sdk.cloud.google.com | bash || true
 ENV PATH=/google-cloud-sdk/bin:$PATH
 
-# Copy credential helpers
+# Copy credential helpers (only ECR helper; ACR skipped)
 COPY --from=cred-helpers-build /go/bin/docker-credential-ecr-login /usr/bin/docker-credential-ecr-login
-COPY --from=cred-helpers-build /go/bin/docker-credential-acr-env /usr/bin/docker-credential-acr-env
 
 WORKDIR /srv/app
 USER 10001:10001
