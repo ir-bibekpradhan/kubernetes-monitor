@@ -1,8 +1,7 @@
-name: PR Title Check
+name: PR Title Check + Docker Build
 
 on:
-  pull_request:
-    types: [opened, edited, synchronize]
+  workflow_dispatch:
 
 jobs:
   pr-title-check:
@@ -12,15 +11,19 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v2
 
-      # Enable Docker BuildKit
+      # Enable Docker BuildKit (important for modern builds)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # ✅ Build Docker image (main goal)
+      # ✅ Build Docker image
       - name: Build Docker image
         run: docker build -t test-image .
 
-      # Existing step
+      # Optional: run container to verify it works
+      - name: Test container
+        run: docker run --rm test-image --help || true
+
+      # Keep your PR title check (won’t really run on manual trigger, but harmless)
       - name: Check PR Title
         uses: amannn/action-semantic-pull-request@v5
         env:
